@@ -53,6 +53,25 @@ td.big{text-align:right;font-family:var(--display);font-size:26px;font-weight:80
 td.big .unit{font-size:16px;font-weight:700}
 .prod small{display:block;font-size:13px;font-weight:500}
 .sendto{font-size:15px;line-height:1.6}
+.extras{display:grid;gap:0;border-top:1px solid var(--line)}
+.xrow{display:grid;grid-template-columns:1fr 130px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.xrow b{font-size:17px}
+.xrow .d{display:block;font-size:14px;font-weight:600}
+.xrow .c{display:block;font-size:13px}
+.xrow .inp{display:grid;gap:2px;text-align:center}
+.xrow .inp span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.xrow input{font-size:20px}
+.fold{display:block}
+.fold>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;min-height:48px;font-family:var(--display);font-weight:800;font-size:22px;text-transform:uppercase}
+.fold>summary::-webkit-details-marker{display:none}
+.fold[open]>summary{margin-bottom:12px}
+.fold>p{margin-bottom:8px!important}
+.foldhint{display:flex;align-items:center;gap:10px;font-family:var(--text);font-size:14px;font-weight:700;text-transform:none}
+#xCount:not(:empty){background:#000;color:#fff;border-radius:999px;padding:3px 10px}
+.chev{width:12px;height:12px;border-right:3px solid #000;border-bottom:3px solid #000;transform:rotate(45deg);margin:0 4px 4px 0;transition:transform .15s}
+.fold[open] .chev{transform:rotate(-135deg);margin:4px 4px 0 0}
+@media (max-width:420px){ .xrow{grid-template-columns:1fr 104px;gap:10px} .fold>summary{font-size:20px} }
+.xgroup{font-family:var(--display);font-weight:800;font-size:18px;text-transform:uppercase;padding:12px 0 4px;border-bottom:1px solid var(--line)}
 .formimg{display:block;width:100%;max-width:100%;height:auto;border:1px solid #000;border-radius:4px;background:#fff;-webkit-touch-callout:default}
 .howto{margin:0 0 10px;font-size:16px;line-height:1.5;background:var(--warn);border:1px solid #000;border-radius:6px;padding:10px}
 .howto span{user-select:all;font-weight:700}
@@ -121,11 +140,17 @@ details input[type=number]{font-size:16px}
     </div>
   </section>
 
+  <details class="panel fold" id="otherFold">
+    <summary><span class="step"><b>3</b> Other products</span><span class="foldhint"><span id="xCount"></span><span class="chev" aria-hidden="true"></span></span></summary>
+    <p class="small" style="margin:0">Optional. Coatings and caulks: enter squares. Bonding and patch products have no coverage rate on the chart, so enter how many you want.</p>
+    <div class="extras" id="extras"></div>
+  </details>
+
   <button class="go" id="goBtn" type="button">Generate Bid</button>
   <div class="err" id="err" hidden></div>
 
   <section class="panel" id="result" hidden aria-labelledby="s3">
-    <h2 class="step" id="s3"><b>3</b> Order ready for Life Paint</h2>
+    <h2 class="step" id="s3"><b>4</b> Order ready for Life Paint</h2>
     <div class="tablewrap" style="overflow-x:auto">
       <table>
         <thead><tr><th>Product</th><th class="hide">Color</th><th class="n hide">Needed (gal)</th><th class="n">5-gal pails</th><th class="n">1-gal cans</th><th class="n">Total (gal)</th></tr></thead>
@@ -190,6 +215,38 @@ details input[type=number]{font-size:16px}
   function stale(){ if (!$('result').hidden){ $('result').hidden = true; $('toast').textContent=''; } save(); }
   document.querySelectorAll('input,select').forEach(function(el){ el.addEventListener('input', stale); el.addEventListener('change', stale); });
 
+  var EXTRAS = [
+    {grp:'Cool Life'},
+    {code:'778H', name:'Heat Reflective Coating', desc:'High altitude & heavy marine layer · wood, stucco, masonry', cov:200, color:true},
+    {grp:'Stretch-Guard'},
+    {code:'802H', name:'Smooth High Build Elastomeric Coating', desc:'Wood, stucco, masonry · not P.A.C.E. approved or heat reflective', cov:100, color:true},
+    {grp:'Weather Fighter'},
+    {code:'770H', name:'Hi Build Flat House & Trim', desc:'All-weather, 200% elongation · wood, stucco, masonry · 10 yr', cov:200, color:true},
+    {grp:'Warranty system products'},
+    {code:'9077H', name:'Elastomeric Textured Stucco Crack Filler', desc:'Masonry', cov:26},
+    {code:'9177H', name:'Elasto-Patch Sandable Caulking', desc:'Wood / masonry', cov:26},
+    {code:'9277H', name:'Elastomeric Smooth Non-Sandable Caulking', desc:'Wood / masonry', cov:26},
+    {code:'LDBR900H', name:'White Polyurethane Caulking', desc:'All surfaces', cov:0},
+    {code:'LD-81', name:'Cement Modifier · Supreme Bonding', desc:'All surfaces', cov:0},
+    {code:'LD-1', name:'Patching Cement · Acrylic Stucco Patch', desc:'Stucco, masonry', cov:0}
+  ];
+  (function(){
+    var h = '';
+    EXTRAS.forEach(function(x){
+      if (x.grp){ h += '<div class="xgroup">'+x.grp+'</div>'; return; }
+      var id = 'x_'+x.code.replace(/\W/g,'');
+      h += '<div class="xrow"><div><b>'+x.code+'</b> <span class="d">'+x.name+'</span><span class="c">'+x.desc+(x.cov?' · '+x.cov+' sq ft/gal':'')+'</span></div>'+
+        '<label class="inp"><span>'+(x.cov?'Squares':'Qty')+'</span><input type="number" id="'+id+'" min="0" step="'+(x.cov?'0.25':'1')+'" inputmode="decimal" placeholder="0"></label></div>';
+    });
+    $('extras').innerHTML = h;
+    $('extras').querySelectorAll('input').forEach(function(el){ el.addEventListener('input', function(){ stale(); xCount(); }); });
+  })();
+  function xCount(){
+    var c = EXTRAS.filter(function(x){ return x.code && n('x_'+x.code.replace(/\W/g,'')) > 0; }).length;
+    $('xCount').textContent = c ? c + ' added' : '';
+  }
+  function anyExtra(){ return EXTRAS.some(function(x){ return x.code && n('x_'+x.code.replace(/\W/g,'')) > 0; }); }
+
   function compute(){
     var sqT = n('sqTrim'), sqB = n('sqBody'), sqS = n('sqSand');
     var r975 = n('r975')||200, r970 = n('r970')||50, r902 = n('r902')||100, rT = n('rTrim')||250;
@@ -204,8 +261,17 @@ details input[type=number]{font-size:16px}
       {code:'975H', name:'Micro Life Primer Standard', color:'', gal:g975},
       {code:'970H', name:'Micro Life Primer Textured', color:'', gal:g970},
       {code:st.sheen, name: st.sheen==='943' ? 'Supreme Wall & Trim Semi-Gloss' : 'Supreme Wall & Trim Satin', color:$('trimColor').value, gal:gT}
-    ].filter(function(l){ return l.gal > 0; });
+    ];
+    EXTRAS.forEach(function(x){
+      if (!x.code) return;
+      var v = n('x_'+x.code.replace(/\W/g,''));
+      if (!v) return;
+      if (x.cov) lines.push({code:x.code, name:x.name, color: x.color ? $('bodyColor').value : '', gal: v*100/x.cov});
+      else lines.push({code:x.code, name:x.name, color:'', qty: Math.ceil(v)});
+    });
+    lines = lines.filter(function(l){ return l.gal > 0 || l.qty > 0; });
     lines.forEach(function(l){
+      if (l.qty) return;
       var p = Math.floor(l.gal/5 + 1e-9), g = Math.ceil(l.gal - p*5 - 1e-9);
       if (g >= 5){ p++; g = 0; }
       l.pails = p; l.gals = g; l.total = p*5 + g;
@@ -216,12 +282,17 @@ details input[type=number]{font-size:16px}
 
   $('goBtn').onclick = function(){
     var e = $('err');
-    if (!n('sqTrim') && !n('sqBody') && !n('sqSand')){ e.textContent = 'Enter squares for at least one surface.'; e.hidden = false; return; }
+    if (!n('sqTrim') && !n('sqBody') && !n('sqSand') && !anyExtra()){ e.textContent = 'Enter squares or a quantity for at least one product.'; e.hidden = false; return; }
     if (!$('custName').value.trim()){ e.textContent = 'Enter the customer name. Life Paint needs it for the warranty.'; e.hidden = false; $('custName').focus(); return; }
     e.hidden = true;
     order = compute();
     var rows = '';
     order.lines.forEach(function(l){
+      if (l.qty){
+        rows += '<tr><td class="prod"><b>'+l.code+'</b><small>'+esc(l.name)+'</small></td>'+
+          '<td class="hide">—</td><td class="n hide">—</td><td class="n">—</td><td class="n">—</td><td class="big">'+l.qty+' <span class="unit">qty</span></td></tr>';
+        return;
+      }
       rows += '<tr><td class="prod"><b>'+l.code+'</b><small>'+esc(l.name)+'</small></td>'+
         '<td class="hide">'+esc(l.color||'—')+'</td><td class="n hide">'+fmt(l.gal)+'</td>'+
         '<td class="n">'+l.pails+'</td><td class="n">'+l.gals+'</td><td class="big">'+l.total+' <span class="unit">gal</span></td></tr>';
@@ -337,6 +408,8 @@ details input[type=number]{font-size:16px}
       {sec:'Additional Materials'},{code:'802H',label:'Silver Coating Lifetime Warranty'},{ac:1},{code:'770H',label:'Bronze Coating 10 year Warranty'},{ac:1},
       {code:'43H',label:'Satin Trim Paint'},{code:'44H',label:'Semi-Gloss Trim Paint'},{code:'70H',label:'Flat Trim Paint'},{code:'95H',label:'Gloss trim Paint'},{code:'9177H',label:'Sandable Caulk and Patch'}];
     var by = {}; o.lines.forEach(function(l){ by[l.code] = l; });
+    var onForm = {}; ROWS.forEach(function(r){ if (r.code) onForm[r.code] = 1; });
+    o.lines.forEach(function(l){ if (!onForm[l.code]) ROWS.push({code:l.code, label:l.name}); });
     var h = 13.6;
     ROWS.forEach(function(r){
       if (r.sec){ doc.setFillColor(205,205,205); doc.rect(M,y,TW,h+2,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.text(r.sec,M+4,y+11); doc.setLineWidth(.6); doc.rect(M,y,TW,h+2); y += h+2; return; }
@@ -351,9 +424,12 @@ details input[type=number]{font-size:16px}
         if (l){
           doc.setFont('helvetica','bold'); doc.setFontSize(9);
           doc.text(l.color||'', cols[1].x+3, y+10, {maxWidth:cols[1].w-6});
-          doc.text(String(l.pails), cols[4].x+cols[4].w/2, y+10, {align:'center'});
-          doc.text(String(l.gals), cols[5].x+cols[5].w/2, y+10, {align:'center'});
-          doc.text(l.total+' gal', cols[6].x+cols[6].w/2, y+10, {align:'center'});
+          if (l.qty){ doc.text(l.qty+' qty', cols[6].x+cols[6].w/2, y+10, {align:'center'}); }
+          else {
+            doc.text(String(l.pails), cols[4].x+cols[4].w/2, y+10, {align:'center'});
+            doc.text(String(l.gals), cols[5].x+cols[5].w/2, y+10, {align:'center'});
+            doc.text(l.total+' gal', cols[6].x+cols[6].w/2, y+10, {align:'center'});
+          }
         }
       }
       y += h;
@@ -391,7 +467,7 @@ details input[type=number]{font-size:16px}
       'Date: '+order.date+'  Warranty: '+$('warranty').value+'  Ship to: '+$('shipTo').value,
       'Homeowner: '+$('custName').value, 'Address: '+$('custAddr').value+', '+$('city').value+' '+$('zip').value,
       ''];
-    order.lines.forEach(function(l){ L.push(l.code+' '+l.name+(l.color?' – '+l.color:'')+': '+l.pails+' x 5GAL + '+l.gals+' GAL = '+l.total+' gal'); });
+    order.lines.forEach(function(l){ L.push(l.qty ? l.code+' '+l.name+': '+l.qty+' qty' : l.code+' '+l.name+(l.color?' – '+l.color:'')+': '+l.pails+' x 5GAL + '+l.gals+' GAL = '+l.total+' gal'); });
     L.push('', 'Please box all 902H.');
     var t = L.join('\n'), fb = $('copyFallback');
     function fallback(){ fb.hidden=false; fb.value=t; fb.focus(); fb.select(); $('toast').textContent='Text is selected below. Copy it with your device.'; }
