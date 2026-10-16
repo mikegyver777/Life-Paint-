@@ -1,4 +1,3 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Life Paint Order Calculator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -106,6 +105,8 @@ details input[type=number]{font-size:16px}
       <label class="field"><span class="label">Ship to</span>
         <input type="text" id="shipTo" autocomplete="off" value="Will Call" list="shipList">
         <datalist id="shipList"><option value="Will Call"></option></datalist></label>
+      <label class="field"><span class="label">Warranty type</span>
+        <select id="warranty"><option>Supreme</option><option selected>Gold</option><option>Silver</option><option>Bronze</option><option>Trim</option></select></label>
       <label class="field"><span class="label">Body color (902H)</span><input type="text" id="bodyColor" autocomplete="off"></label>
       <label class="field"><span class="label">Trim color</span><input type="text" id="trimColor" autocomplete="off"></label>
     </div>
@@ -158,11 +159,12 @@ details input[type=number]{font-size:16px}
       </table>
     </div>
     <div id="formWrap" hidden>
-      <p class="howto"><b>To send it:</b> press and hold the order form below and choose <b>Save</b> or <b>Share</b>, or take a screenshot. Then email it to <span>orderdesk@lifepaint.com</span>.</p>
+      <p class="howto"><b>To send it:</b> tap <b>Copy order form</b> below and paste it into an email to <span>orderdesk@lifepaint.com</span>. Or save the picture: on a phone or tablet press and hold it and choose <b>Save</b> or <b>Share</b>; on a computer right-click it and choose <b>Save image as</b>.</p>
       <img id="formImg" alt="Filled Cool Life Supreme order form" class="formimg">
     </div>
     <div class="btns">
-      <button class="btn" id="pdfBtn" type="button">Download order form (PDF)</button>
+      <button class="btn" id="copyImgBtn" type="button">Copy order form</button>
+      <button class="btn ghost" id="pdfBtn" type="button" hidden>Download PDF</button>
       <button class="btn ghost" id="copyBtn" type="button">Copy as text</button>
     </div>
     <div class="toast" id="toast" aria-live="polite"></div>
@@ -177,8 +179,6 @@ details input[type=number]{font-size:16px}
       <label class="field"><span class="label">Dealer contact</span><input type="text" id="dealerContact" value="Michael Saffaie"></label>
       <label class="field"><span class="label">Dealer phone</span><input type="text" id="dealerPhone" value="(310) 953-8805"></label>
       <label class="field"><span class="label">Dealer email</span><input type="text" id="dealerEmail"></label>
-      <label class="field"><span class="label">Warranty</span>
-        <select id="warranty"><option>Supreme</option><option selected>Gold</option><option>Silver</option><option>Bronze</option><option>Trim</option></select></label>
       <label class="field"><span class="label">Spanish lace extra 902H %</span><input type="number" id="laceExtra" min="0" step="5" value="0"></label>
       <label class="field"><span class="label">970H hose loss (gal/job)</span><input type="number" id="hoseLoss" min="0" step="1" value="3"></label>
       <label class="field"><span class="label">975H coverage (sq ft/gal)</span><input type="number" id="r975" min="1" value="200"></label>
@@ -212,7 +212,14 @@ details input[type=number]{font-size:16px}
   $('texSmooth').onclick = function(){ st.lace=false; toggle('texSmooth','texLace',true); stale(); };
   $('texLace').onclick = function(){ st.lace=true; toggle('texSmooth','texLace',false); stale(); };
 
-  function stale(){ if (!$('result').hidden){ $('result').hidden = true; $('toast').textContent=''; } save(); }
+  // Once a bid is showing, any change updates it right away so the form never shows old info
+  var liveTimer = null;
+  function stale(){
+    save();
+    if ($('result').hidden) return;
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(function(){ generate(false); }, 150);
+  }
   document.querySelectorAll('input,select').forEach(function(el){ el.addEventListener('input', stale); el.addEventListener('change', stale); });
 
   var EXTRAS = [
@@ -280,10 +287,12 @@ details input[type=number]{font-size:16px}
     return {lines:lines, sq:{trim:sqT, body:sqB, sand:sqS}, scope:scope, date:today(), time:nowTime()};
   }
 
-  $('goBtn').onclick = function(){
+  $('goBtn').onclick = function(){ generate(true); };
+  function generate(fromButton){
     var e = $('err');
-    if (!n('sqTrim') && !n('sqBody') && !n('sqSand') && !anyExtra()){ e.textContent = 'Enter squares or a quantity for at least one product.'; e.hidden = false; return; }
-    if (!$('custName').value.trim()){ e.textContent = 'Enter the customer name. Life Paint needs it for the warranty.'; e.hidden = false; $('custName').focus(); return; }
+    function fail(msg){ e.textContent = msg; e.hidden = false; $('result').hidden = true; $('toast').textContent = ''; }
+    if (!n('sqTrim') && !n('sqBody') && !n('sqSand') && !anyExtra()){ fail('Enter squares or a quantity for at least one product.'); return; }
+    if (!$('custName').value.trim()){ fail('Enter the customer name. Life Paint needs it for the warranty.'); if (fromButton) $('custName').focus(); return; }
     e.hidden = true;
     order = compute();
     var rows = '';
@@ -298,12 +307,12 @@ details input[type=number]{font-size:16px}
         '<td class="n">'+l.pails+'</td><td class="n">'+l.gals+'</td><td class="big">'+l.total+' <span class="unit">gal</span></td></tr>';
     });
     $('orderBody').innerHTML = rows;
-    $('toast').textContent = ''; $('copyFallback').hidden = true;
+    if (fromButton){ $('toast').textContent = ''; $('copyFallback').hidden = true; }
     $('result').hidden = false;
     var show = function(){ try{ $('formImg').src = renderFormImage(order); $('formWrap').hidden = false; }catch(err){ $('formWrap').hidden = true; } };
     if (logoImg.complete) show(); else { logoImg.onload = show; logoImg.onerror = show; }
-    $('result').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
-  };
+    if (fromButton) $('result').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
+  }
 
   var LOGO = 'data:image/jpeg;base64,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';
 
@@ -439,25 +448,65 @@ details input[type=number]{font-size:16px}
     doc.text(doc.splitTextToSize('*SPECIAL TINTS: Some dark colors may have additional cost. RETURNED GOODS: All sales are final. All returns must be approved by LTP. Prices subject to change without notice. *Coverage per gallon is normally expressed as coverage over a smooth surface and should be adjusted for non-smooth surfaces. USE SPECIFIED PREPARATION PROCEDURES. Be sure to box all of your materials to ensure a uniform color.', TW), M, y);
   }
 
-  function getDownloads(){
-    return new Promise(function(resolve){
+  /* Where can this page save a PDF?
+     'claude'  = inside Claude, with the save permission
+     'browser' = opened on its own (e.g. GitHub Pages) -> normal browser download
+     null      = inside Claude, but this screen blocks saving */
+  var saveModeP = null;
+  function getSaveMode(){
+    if (saveModeP) return saveModeP;
+    saveModeP = new Promise(function(resolve){
+      var inFrame = false; try{ inFrame = window.self !== window.top; }catch(e){ inFrame = true; }
       var tries = 0;
       (function check(){
         if (window.claude && typeof window.claude.use === 'function'){
-          window.claude.use('downloads').then(resolve, function(){ resolve(null); });
-        } else if (tries++ < 20){ setTimeout(check, 250); }
-        else resolve(null);
+          window.claude.use('downloads').then(function(dl){ resolve(dl ? {kind:'claude', dl:dl} : null); }, function(){ resolve(null); });
+        } else if (inFrame && tries++ < 20){ setTimeout(check, 250); }
+        else resolve(window.claude ? null : {kind:'browser'});
       })();
     });
+    return saveModeP;
   }
+  // Show the PDF button only where saving works
+  getSaveMode().then(function(m){ $('pdfBtn').hidden = !m; });
+
+  $('copyImgBtn').onclick = function(){
+    var t = $('toast'), src = $('formImg').src;
+    if (!src || src.indexOf('data:image/png') !== 0){ t.textContent = 'Tap Generate Bid first.'; return; }
+    try{
+      var bin = atob(src.split(',')[1]), arr = new Uint8Array(bin.length);
+      for (var i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+      var blob = new Blob([arr], {type:'image/png'});
+      navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(function(){
+        t.textContent = 'Order form copied. Open a new email to orderdesk@lifepaint.com and paste it.';
+      }, function(){
+        t.textContent = 'This screen blocked copying. Press and hold the picture (phone/tablet) or right-click it (computer) and choose Save or Copy.';
+      });
+    }catch(e){
+      t.textContent = 'This screen blocked copying. Press and hold the picture (phone/tablet) or right-click it (computer) and choose Save or Copy.';
+    }
+  };
+
   $('pdfBtn').onclick = async function(){
     var t = $('toast'); if (!order) return;
     t.textContent = 'Preparing the PDF…';
-    var dl = null; try{ dl = await getDownloads(); }catch(e){}
-    if (!dl){ t.textContent = 'This screen does not allow downloads. Open the calculator from the link in your Claude app or at claude.ai, or tap Copy as text and paste it into an email.'; return; }
-    var buf; try{ buf = buildPDF(order); }catch(e){ t.textContent = e.message; return; }
+    var m = null; try{ m = await getSaveMode(); }catch(e){}
+    if (!m){ t.textContent = 'This screen does not allow downloads. Use Copy order form instead.'; $('pdfBtn').hidden = true; return; }
     var who = ($('custName').value || 'order').replace(/[^\w\- ]/g,'').trim() || 'order';
-    try{ await dl.save({filename:'Cool Life Order - '+who+'.pdf', data:buf}); t.textContent = 'Saved. Email it to orderdesk@lifepaint.com or fax 562-946-5921.'; }
+    var name = 'Cool Life Order - '+who+'.pdf';
+    var buf; try{ buf = buildPDF(order); }catch(e){ t.textContent = e.message; return; }
+    if (m.kind === 'browser'){
+      try{
+        var blob = new Blob([buf], {type:'application/pdf'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+        t.textContent = 'PDF downloaded. Email it to orderdesk@lifepaint.com or fax 562-946-5921.';
+      }catch(e){ t.textContent = 'Could not download the PDF. Use Copy order form instead.'; }
+      return;
+    }
+    try{ await m.dl.save({filename:name, data:buf}); t.textContent = 'Saved. Email it to orderdesk@lifepaint.com or fax 562-946-5921.'; }
     catch(err){ var c = err && err.code; t.textContent = c==='declined' ? 'Download canceled.' : c==='rate_limited' ? 'A save prompt is already open.' : 'Could not save the PDF here.'; }
   };
 
@@ -474,10 +523,8 @@ details input[type=number]{font-size:16px}
     try{ navigator.clipboard.writeText(t).then(function(){ fb.hidden=true; $('toast').textContent='Order copied.'; }, fallback); }catch(e){ fallback(); }
   };
 
-  var KEEP = ['dealerName','dealerContact','dealerPhone','dealerEmail','warranty','laceExtra','hoseLoss','r975','r970','r902','rTrim'];
+  var KEEP = ['dealerName','dealerContact','dealerPhone','dealerEmail','laceExtra','hoseLoss','r975','r970','r902','rTrim'];
   function save(){ try{ var d = {}; KEEP.forEach(function(k){ d[k] = $(k).value; }); localStorage.setItem('lifePaintSettings', JSON.stringify(d)); }catch(e){} }
   try{ var d = JSON.parse(localStorage.getItem('lifePaintSettings')||'null'); if (d) KEEP.forEach(function(k){ if (d[k] != null) $(k).value = d[k]; }); }catch(e){}
 })();
 </script>
-
-</body></html>
